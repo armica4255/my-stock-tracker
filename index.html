@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>台股歷史數據監控</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-financial"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+        .controls { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .data-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <label>選擇個股：</label>
+        <select id="stockSelector" onchange="updateView()">
+            <option value="TAIEX">台股加權指數</option>
+            <option value="2330">2330 台積電</option>
+            <option value="0050">0050 元大台灣50</option>
+            <option value="006208">006208 富邦台50</option>
+        </select>
+        
+        <label> 漲跌幅區間：</label>
+        <select id="rangeSelector" onchange="updateView()">
+            <option value="30">1個月</option>
+            <option value="90">3個月</option>
+            <option value="180">6個月</option>
+            <option value="365">1年</option>
+            <option value="1825">5年</option>
+        </select>
+        <span id="pctResult" style="font-weight:bold; color:red; margin-left:10px;"></span>
+    </div>
+
+    <div class="data-card">
+        <canvas id="mainChart"></canvas>
+    </div>
+
+    <script>
+        let rawData = {};
+        let chart;
+
+        // 模擬從同目錄下的 data.json 讀取 (由 Actions 生成)
+        async function fetchData() {
+            try {
+                // 這裡會嘗試讀取你倉庫裡的 data.json
+                const res = await fetch('data.json');
+                rawData = await res.json();
+                updateView();
+            } catch (e) {
+                console.error("尚未找到數據檔，請先執行 GitHub Actions");
+            }
+        }
+
+        function updateView() {
+            const sid = document.getElementById('stockSelector').value;
+            const days = parseInt(document.getElementById('rangeSelector').value);
+            const stockData = rawData[sid];
+            if(!stockData) return;
+
+            // 計算漲跌幅
+            const latest = stockData[stockData.length - 1].c;
+            const prevIndex = Math.max(0, stockData.length - 1 - days);
+            const prev = stockData[prevIndex].c;
+            const diff = (((latest - prev) / prev) * 100).toFixed(2);
+            
+            document.getElementById('pctResult').innerText = `區間漲跌幅: ${diff}%`;
+            document.getElementById('pctResult').style.color = diff >= 0 ? 'red' : 'green';
+
+            renderChart(stockData, sid);
+        }
+
+        function renderChart(data, label) {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            if(chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: label + ' 收盤價',
+                        data: data.map(d => ({ x: d.t, y: d.c })),
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        pointRadius: 0
+                    }]
+                },
+                options: { scales: { x: { type: 'time' } } }
+            });
+        }
+
+        fetchData();
+    </script>
+</body>
+</html>
