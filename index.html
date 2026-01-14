@@ -2,95 +2,104 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>台股歷史數據監控</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>台股歷史數據表格 - Excel 風格</title>
     <script src="https://cdn.jsdelivr.net/npm/luxon"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-financial"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
-        .controls { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .data-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        body { font-family: "Microsoft JhengHei", sans-serif; padding: 20px; background: #f0f2f5; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header-box { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; padding: 15px; background: #e9ecef; border-radius: 8px; }
+        select { padding: 8px; font-size: 16px; }
+        
+        /* 漲跌幅顯示區 */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .stat-card { padding: 15px; border: 1px solid #ddd; border-radius: 5px; text-align: center; }
+        .stat-card h4 { margin: 0 0 10px 0; color: #555; }
+        .pct-val { font-size: 20px; font-weight: bold; }
+
+        /* 表格樣式 */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        th { background-color: #007bff; color: white; position: sticky; top: 0; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:hover { background-color: #f1f1f1; }
+        .up { color: #eb0900; } /* 漲用紅 */
+        .down { color: #008a00; } /* 跌用綠 */
     </style>
 </head>
 <body>
-    <div class="controls">
-        <label>選擇個股：</label>
-        <select id="stockSelector" onchange="updateView()">
-            <option value="TAIEX">台股加權指數</option>
-            <option value="2330">2330 台積電</option>
-            <option value="0050">0050 元大台灣50</option>
-            <option value="006208">006208 富邦台50</option>
-        </select>
-        
-        <label> 漲跌幅區間：</label>
-        <select id="rangeSelector" onchange="updateView()">
-            <option value="30">1個月</option>
-            <option value="90">3個月</option>
-            <option value="180">6個月</option>
-            <option value="365">1年</option>
-            <option value="1825">5年</option>
-        </select>
-        <span id="pctResult" style="font-weight:bold; color:red; margin-left:10px;"></span>
+
+<div class="container">
+    <h2>台股歷史數據監控面板 (2016 - 至今)</h2>
+    
+    <div class="header-box">
+        <div>
+            <label>選擇股票：</label>
+            <select id="stockSelector" onchange="renderAll()">
+                <option value="TAIEX">台股加權指數</option>
+                <option value="2330">2330 台積電</option>
+                <option value="0050">0050 元大台灣50</option>
+                <option value="006208">006208 富邦台50</option>
+            </select>
+        </div>
+        <p style="color: #666; font-size: 14px;">(數據每天 18:00 自動更新)</p>
     </div>
 
-    <div class="data-card">
-        <canvas id="mainChart"></canvas>
+    <div class="stat-grid" id="statGrid">
+        </div>
+
+    <div style="max-height: 500px; overflow-y: auto;">
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>日期</th>
+                    <th>開盤價</th>
+                    <th>最高價</th>
+                    <th>最低價</th>
+                    <th>收盤價</th>
+                    <th>單日漲跌 %</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
     </div>
+</div>
 
-    <script>
-        let rawData = {};
-        let chart;
+<script>
+    let rawData = {};
 
-        // 模擬從同目錄下的 data.json 讀取 (由 Actions 生成)
-        async function fetchData() {
-            try {
-                // 這裡會嘗試讀取你倉庫裡的 data.json
-                const res = await fetch('data.json');
-                rawData = await res.json();
-                updateView();
-            } catch (e) {
-                console.error("尚未找到數據檔，請先執行 GitHub Actions");
-            }
+    async function init() {
+        try {
+            const res = await fetch('data.json');
+            rawData = await res.json();
+            renderAll();
+        } catch (e) {
+            document.body.innerHTML = "<h1>數據加載中或 data.json 尚未生成...</h1>";
         }
+    }
 
-        function updateView() {
-            const sid = document.getElementById('stockSelector').value;
-            const days = parseInt(document.getElementById('rangeSelector').value);
-            const stockData = rawData[sid];
-            if(!stockData) return;
+    function calculatePct(data, days) {
+        if (data.length < 2) return 0;
+        const latest = data[data.length - 1].c;
+        const targetIndex = Math.max(0, data.length - 1 - days);
+        const targetPrice = data[targetIndex].c;
+        return (((latest - targetPrice) / targetPrice) * 100).toFixed(2);
+    }
 
-            // 計算漲跌幅
-            const latest = stockData[stockData.length - 1].c;
-            const prevIndex = Math.max(0, stockData.length - 1 - days);
-            const prev = stockData[prevIndex].c;
-            const diff = (((latest - prev) / prev) * 100).toFixed(2);
-            
-            document.getElementById('pctResult').innerText = `區間漲跌幅: ${diff}%`;
-            document.getElementById('pctResult').style.color = diff >= 0 ? 'red' : 'green';
+    function renderAll() {
+        const sid = document.getElementById('stockSelector').value;
+        const data = rawData[sid];
+        if (!data) return;
 
-            renderChart(stockData, sid);
-        }
+        // 1. 渲染區間漲跌幅卡片
+        const periods = [
+            { label: '1個月', days: 22 },
+            { label: '3個月', days: 66 },
+            { label: '6個月', days: 120 },
+            { label: '1年', days: 250 },
+            { label: '5年', days: 1250 }
+        ];
 
-        function renderChart(data, label) {
-            const ctx = document.getElementById('mainChart').getContext('2d');
-            if(chart) chart.destroy();
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: label + ' 收盤價',
-                        data: data.map(d => ({ x: d.t, y: d.c })),
-                        borderColor: 'rgb(75, 192, 192)',
-                        tension: 0.1,
-                        pointRadius: 0
-                    }]
-                },
-                options: { scales: { x: { type: 'time' } } }
-            });
-        }
-
-        fetchData();
-    </script>
-</body>
-</html>
+        let statHtml = '';
+        periods.forEach(p => {
+            const pct = calculatePct(data, p.days);
+            const colorClass = pct >=
