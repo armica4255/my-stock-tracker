@@ -2,33 +2,35 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>台股歷史數據監控 - 2016 至今</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台股歷史數據監控 - Dashboard</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; padding: 20px; background: #f4f7f6; }
+        :root { --primary: #007bff; --up-color: #d60000; --down-color: #008800; --bg: #f4f7f6; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 20px; }
         .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .filter-section { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 25px; padding: 20px; background: #e9ecef; border-radius: 8px; }
-        select, input { padding: 8px; border-radius: 5px; border: 1px solid #ccc; }
-        button { padding: 8px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 25px; }
-        .stat-card { padding: 15px; background: #fff; border: 2px solid #eee; border-radius: 8px; text-align: center; }
+        
+        /* 標題與狀態 */
+        .status-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 5px; }
+        .online { background: #28a745; box-shadow: 0 0 5px #28a745; }
+
+        /* 統計卡片 */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 25px; }
+        .stat-card { padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px; text-align: center; transition: 0.3s; }
+        .stat-card:hover { border-color: var(--primary); }
+        .stat-card h4 { margin: 0 0 8px 0; color: #666; font-size: 14px; }
         .pct-val { font-size: 20px; font-weight: bold; }
-        .table-container { max-height: 500px; overflow-y: auto; border: 1px solid #ddd; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #f8f9fa; position: sticky; top: 0; padding: 12px; border-bottom: 2px solid #ddd; }
-        td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; }
-        .up { color: #d60000; } .down { color: #008800; }
-    </style>
-</head>
-<body>
 
-<div class="container">
-    <h2 id="title">台股歷史數據監控 (載入中...)</h2>
-    
-    <div id="statGrid" class="stat-grid"></div>
+        /* 篩選區 */
+        .filter-section { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 25px; padding: 20px; background: #e9ecef; border-radius: 8px; }
+        .filter-group { display: flex; align-items: center; gap: 8px; }
+        select, input { padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+        button { padding: 10px 25px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0056b3; }
 
-    <div class="filter-section">
-        <label>股票：</label>
-        <select id="stockSelector" onchange="resetAndRender()">
-            <option value="TAIEX">台股加權指數</option>
-            <option value="2330">2330 台積電</option>
-            <option value="
+        /* 表格區 */
+        .table-container { max-height: 550px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th { background: #f8f9fa; position: sticky; top: 0; z-index: 10; padding: 15px; border-bottom: 2px solid #ddd; font-size: 14px; }
+        td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; font-size: 15px; }
+        tr
