@@ -27,7 +27,7 @@ jobs:
           from datetime import datetime
           stocks = ['2330', '0050', '006208', 'TAIEX']
           result = {}
-          # 這裡示範串接 FinMind API 抓取 2016 至今
+          # 這裡示範串接 FinMind API 抓取 2016-01-01 至今
           for s in stocks:
               url = f'https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id={s}&start_date=2016-01-01'
               data = requests.get(url).json()['data']
