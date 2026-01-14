@@ -1,47 +1,39 @@
-name: Daily Stock Update
-
-on:
-  schedule:
-    - cron: '0 10 * * *' # 每天台灣時間下午 6 點執行 (UTC 10:00)
-  workflow_dispatch: # 允許手動點擊執行
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Install dependencies
-        run: pip install pandas requests
-
-      - name: Run Fetch Script
+- name: Run Fetch Script
         run: |
           python -c "
-          import requests, json, pandas as pd
-          from datetime import datetime
+          import requests, json, time
+          # 定義要抓取的清單
           stocks = ['2330', '0050', '006208', 'TAIEX']
           result = {}
-          # 這裡示範串接 FinMind API 抓取 2016-01-01 至今
-          for s in stocks:
-              url = f'https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id={s}&start_date=2016-01-01'
-              data = requests.get(url).json()['data']
-              # 格式化為前端需要的簡潔格式 [ {t:時間, o:開, h:高, l:低, c:收} ]
-              result[s] = [{'t': d['date'], 'o': d['open'], 'h': d['max'], 'l': d['min'], 'c': d['close']} for d in data]
-          
-          with open('data.json', 'w') as f:
-              json.dump(result, f)
-          "
 
-      - name: Commit and Push
-        run: |
-          git config --global user.name 'github-actions'
-          git config --global user.email 'action@github.com'
-          git add data.json
-          git commit -m 'Update stock data' || exit 0
-          git push
+          for s in stocks:
+              print(f'正在抓取 {s}...')
+              # FinMind API
+              url = f'https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id={s}&start_date=2016-01-01'
+              try:
+                  r = requests.get(url)
+                  raw_data = r.json().get('data', [])
+                  
+                  if not raw_data:
+                      print(f'警告：{s} 沒有回傳資料')
+                      continue
+
+                  # 統一轉換欄位名稱，相容個股與大盤
+                  formatted = []
+                  for d in raw_data:
+                      formatted.append({
+                          't': d.get('date'),
+                          'o': d.get('open') or d.get('開盤價'),
+                          'h': d.get('max') or d.get('最高價'),
+                          'l': d.get('min') or d.get('最低價'),
+                          'c': d.get('close') or d.get('收盤價')
+                      })
+                  result[s] = formatted
+                  time.sleep(1) # 稍微停頓，避免被 API 擋掉
+              except Exception as e:
+                  print(f'抓取 {s} 時發生錯誤: {e}')
+
+          with open('data.json', 'w', encoding='utf-8') as f:
+              json.dump(result, f, ensure_ascii=False)
+          print('資料成功寫入 data.json')
+          "
