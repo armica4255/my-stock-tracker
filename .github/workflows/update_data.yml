@@ -51,10 +51,11 @@ jobs:
               json.dump(result, f, ensure_ascii=False)
           "
 
-      - name: Commit and Push
+      - - name: Commit and Push
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'action@github.com'
+          git pull --rebase origin main  # 先拉取最新版本並合併
           git add data.json
           git commit -m 'Update stock data' || exit 0
-          git push
+          git push origin main
